@@ -12,7 +12,7 @@ from tools import roll_dice, get_user_input
 
 #Create agent
 memory = MemorySaver()
-model = ChatOllama(model="llama3.1", temperature=0)
+model = ChatOllama(model="llama3.2", temperature=0)
 tools = [roll_dice, get_user_input]
 agent_executor = create_react_agent(model, tools, checkpointer=memory)
 
