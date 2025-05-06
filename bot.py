@@ -6,11 +6,18 @@ from discord.action_row import join_campaign_action_row
 from discord.modals import create_campaign_modal, create_character_modal
 from dotenv import load_dotenv
 from collections import defaultdict
+from models import Player, Campaign, Character, Inventory
+from db import db
 load_dotenv()
 
 bot = Client(intents=Intents.DEFAULT, token=os.environ.get("DISCORD_BOT_KEY"))
 lobbies = {}
 user_campaigns = defaultdict(list)
+
+def initialize_db():
+    db.connect()
+    db.create_tables([Player, Campaign, Character, Inventory], safe=True)
+
 class LobbyState:
     def __init__(self, lobby_owner: str, lobby_id: str, campaign_name: str, channel_id: str, message_id: str, campaign_theme: str):
         self.lobby_owner = lobby_owner
@@ -22,7 +29,7 @@ class LobbyState:
         self.campaign_theme = campaign_theme
         self.players = {} # user_id -> character dict
 
-class Character:
+class LobbyCharacter:
     def __init__(self, character_name: str, class_name: str):
         self.name = character_name
         self.class_name = class_name
@@ -31,7 +38,8 @@ class Character:
 async def on_ready():
     print("Ready")
     print(f"This bot is owned by {bot.owner}")
-
+    print("initializing db...")
+    initialize_db()
 
         
 @slash_command(name="setup_campaign", description="Setup a new DND campaign!")
@@ -42,6 +50,9 @@ async def setup_campaign(ctx: SlashContext):
     await ctx.send_modal(modal=modal)
     modal_ctx: ModalContext = await ctx.bot.wait_for_modal(modal)
 
+    #Create a player if they don't exist
+    owner, created = Player.get_or_create(discord_id=user_id)
+
     #Get the campaign name from the modal
     campaign_name = modal_ctx.responses["campaign_name"]
     # Get the campaign theme from the modal
@@ -50,6 +61,7 @@ async def setup_campaign(ctx: SlashContext):
     # Send a message to the channel with the campaign theme
     msg = await modal_ctx.send(f"A new campaign has begun! The theme is: {campaign_theme}", components=join_campaign_action_row(f"join_{lobby_id}"))
 
+    campaign = Campaign.create(owner=owner, server_id=str(ctx.guild_id), campaign_name=campaign_name, campaign_theme=campaign_theme)
     lobbies[lobby_id] = LobbyState(str(ctx.user.id), lobby_id, campaign_name, ctx.channel_id, msg.id, campaign_theme)
     user_campaigns[user_id].append(lobby_id)
 
@@ -71,7 +83,14 @@ async def handle_join_campaign(ctx: ComponentContext):
 async def on_character_created(ctx: ModalContext, character_name: str, character_class: str):
     custom_id = ctx.custom_id
     lobby_id, user_id = custom_id.split("_")[2:]
-    lobbies.get(lobby_id).players[user_id] = Character(character_name, character_class)
+    lobby = lobbies.get(lobby_id)
+    #Create a player if they don't exist
+    player, created= Player.get_or_create(discord_id=user_id)
+
+    #Create a character
+    character = Character.create(player=player, campaign=lobby.campaign, character_name=character_name, character_class=character_class)
+
+    lobby.players[user_id] = LobbyCharacter(character_name, character_class)
     await ctx.send(f"Character created: {character_name} the {character_class}", ephemeral=True)
 
 @slash_command(name="start_campaign", description="Start the campaign!")
