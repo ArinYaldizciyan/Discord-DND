@@ -6,7 +6,7 @@ from discord.action_row import join_campaign_action_row
 from discord.modals import create_campaign_modal, create_character_modal
 from dotenv import load_dotenv
 from collections import defaultdict
-from models import Player, Campaign, Character, Inventory
+from models import Player, Campaign, Character, Inventory, CampaignParticipant
 from db import db
 load_dotenv()
 
@@ -16,7 +16,7 @@ user_campaigns = defaultdict(list)
 
 def initialize_db():
     db.connect()
-    db.create_tables([Player, Campaign, Character, Inventory], safe=True)
+    db.create_tables([Player, Campaign, Character, Inventory, CampaignParticipant], safe=True)
 
 class LobbyState:
     def __init__(self, lobby_owner: str, lobby_id: str, campaign_name: str, channel_id: str, message_id: str, campaign_theme: str):
@@ -121,7 +121,5 @@ async def begin_campaign(ctx: ComponentContext):
     print(lobby)
     await ctx.send(f"Campaign {lobby.campaign_name} started!", ephemeral=True)
     
-
-
 
 bot.start()

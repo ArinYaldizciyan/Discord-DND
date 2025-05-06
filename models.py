@@ -17,6 +17,14 @@ class Campaign(BaseModel):
     campaign_name = CharField()
     campaign_theme = TextField()
 
+class CampaignParticipant(BaseModel):
+    player = ForeignKeyField(Player, backref='participations')
+    campaign = ForeignKeyField(Campaign, backref='participants')
+
+    class Meta:
+        constraints = [SQL('UNIQUE(player_id, campaign_id)')]
+
+
 
 class Character(BaseModel):
     player = ForeignKeyField(Player, backref='characters')
